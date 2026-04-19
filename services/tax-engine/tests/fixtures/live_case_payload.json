@@ -1,0 +1,31 @@
+{
+  "client_name": "Integration Case Client",
+  "tax_year": 2025,
+  "intake": {
+    "filing_status": "single",
+    "dependents_count": 0,
+    "qualifying_child_count": 0,
+    "education_expenses": 1200,
+    "self_employment": false,
+    "rental_income": false,
+    "state_of_residence": "Texas",
+    "local_tax_jurisdiction": null,
+    "withholding_notes": "Integration test withholding note.",
+    "has_1098_t": true,
+    "consent_accepted": true
+  },
+  "documents": [
+    {
+      "file_name": "integration-w2.txt",
+      "mime_type": "text/plain",
+      "uploaded_by": "client",
+      "content_text": "Wages 58400 Federal Withholding 6150 State Wages 58400"
+    },
+    {
+      "file_name": "integration-1098t.txt",
+      "mime_type": "text/plain",
+      "uploaded_by": "client",
+      "content_text": "1098-T Tuition 1200 Scholarships 0"
+    }
+  ]
+}

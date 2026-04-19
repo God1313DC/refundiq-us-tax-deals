@@ -1,0 +1,21 @@
+# Environment Reference
+
+- `NEXT_PUBLIC_SITE_URL`: web origin for auth recovery and UI links
+- `FRONTEND_BASE_URL`: server-side reference to the frontend origin
+- `FASTAPI_BASE_URL`: web-to-API service URL
+- `API_BASE_URL`: API self-reference in containerized/staging setups
+- `NEXT_PUBLIC_SUPABASE_URL`: browser Supabase URL
+- `SUPABASE_URL`: server/service Supabase URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: browser auth key
+- `SUPABASE_SERVICE_ROLE_KEY`: privileged server/service key
+- `SUPABASE_STORAGE_BUCKET`: private document bucket
+- `REDIS_URL`: queue backend URL
+- `OCR_PROVIDER`: `stub` or `mock_structured` in this repo
+- `SCHEDULER_ENABLED`: enables recurring source-ingestion scheduler loop
+- `SCHEDULER_SOURCE_INTERVAL_MINUTES`: recurring source-refresh interval
+- `ADMIN_SYNC_LIMIT`: admin/manual source-refresh batch size
+- `SOURCE_INGESTION_USER_AGENT`: outbound research-ingestion user agent
+- `SOURCE_INGESTION_TIMEOUT_SECONDS`: fetch timeout for IRS/state sources
+- `ALLOWED_WEB_ORIGINS`: comma-separated CORS allowlist for FastAPI
+- `PDF_OUTPUT_DIR`: placeholder output path for rendered workpapers
+- `TEST_MODE`: enables safer test-only toggles where supported

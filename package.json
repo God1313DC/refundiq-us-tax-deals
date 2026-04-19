@@ -1,0 +1,26 @@
+{
+  "name": "refundiq-us-tax-deals",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:web",
+    "dev:web": "npm run dev --workspace web",
+    "build:web": "npm run build --workspace web",
+    "lint:web": "npm run lint --workspace web",
+    "typecheck:web": "npm run typecheck --workspace web",
+    "dev:api": "cd services/tax-engine && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:worker": "cd services/tax-engine && python -m app.workers.tasks",
+    "dev:scheduler": "cd services/tax-engine && python -m app.workers.scheduler",
+    "dev:stack": "docker compose up --build",
+    "down:stack": "docker compose down",
+    "test:web": "npm run test --workspace web",
+    "test:e2e:web": "npm run test:e2e --workspace web",
+    "test:api": "cd services/tax-engine && pytest",
+    "test:integration:live": "python3 -m pytest services/tax-engine/tests/integration -m live",
+    "smoke:health": "sh ./scripts/run-smoke-checks.sh",
+    "verify:live-stack": "python3 ./scripts/verify-live-stack.py"
+  }
+}

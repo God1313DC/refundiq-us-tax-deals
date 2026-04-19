@@ -1,0 +1,68 @@
+services:
+  web:
+    image: node:22-alpine
+    working_dir: /workspace/apps/web
+    command: sh -c "npm install && npm run dev -- --hostname 0.0.0.0"
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.example
+    volumes:
+      - ./apps/web:/workspace/apps/web
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ./services/tax-engine
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.example
+    volumes:
+      - ./services/tax-engine:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: ./services/tax-engine
+    command: python -m app.workers.tasks
+    env_file:
+      - .env.example
+    volumes:
+      - ./services/tax-engine:/app
+    depends_on:
+      - redis
+
+  scheduler:
+    build:
+      context: ./services/tax-engine
+    command: python -m app.workers.scheduler
+    env_file:
+      - .env.example
+    volumes:
+      - ./services/tax-engine:/app
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
