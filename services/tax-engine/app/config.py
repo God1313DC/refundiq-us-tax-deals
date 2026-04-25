@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     source_ingestion_user_agent: str = "RefundIQ-ResearchBot/1.0 (+https://ustaxdeals.example)"
     source_ingestion_timeout_seconds: int = 20
     allowed_web_origins: str = "http://localhost:3000"
-    ocr_provider: str = "stub"
+    ocr_provider: str = "tesseract"
     scheduler_enabled: bool = False
     scheduler_source_interval_minutes: int = 360
     scheduler_startup_delay_seconds: int = 10

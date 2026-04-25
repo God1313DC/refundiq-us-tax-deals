@@ -13,6 +13,8 @@ class DocumentClassifier:
     def classify(self, document: UploadedDocument) -> tuple[str, float]:
         name = document.file_name.lower()
         text = (document.content_text or "").lower()
+        if document.declared_form_type and document.declared_form_type not in {"supporting_document", "unclassified"}:
+            return document.declared_form_type, 0.96
 
         mappings = {
             "w-2": "w2",

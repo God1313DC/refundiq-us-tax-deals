@@ -29,13 +29,16 @@ class DocumentPipeline:
 
             status = "processed" if extracted_fields or form_type in {"id_document", "prior_year_return"} else "review_needed"
             unreadable_reason = None
-            if form_type in {"unclassified", "unknown_image"}:
+            if form_type in {"unclassified", "unknown_image"} and not document.declared_form_type:
                 status = "unreadable"
                 unreadable_reason = (
                     "Uploaded image could not be read well enough for classification."
                     if form_type == "unknown_image"
                     else "Classifier could not identify a supported form type."
                 )
+            elif document.declared_form_type and not extracted_fields and form_type not in {"id_document", "prior_year_return", "supporting_document"}:
+                status = "review_needed"
+                unreadable_reason = "The document type was identified from your upload choice, but the figures still need review or stronger OCR."
             elif confidence < 0.5 and not extracted_fields:
                 status = "review_needed"
                 unreadable_reason = "Low-confidence classification. Reviewer should confirm form type and readability."

@@ -1,4 +1,7 @@
 import { demoCases } from "@/lib/demo-data";
+import { isAuthBypassed } from "@/lib/auth";
+import { parseWorkflowNotes } from "@/lib/intake-workflow";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   AdminUserRecord,
@@ -17,6 +20,18 @@ import {
   SourceHealthRecord
 } from "@/lib/types";
 import { canPreviewInline } from "@/lib/uploads";
+
+async function getReadClient() {
+  return isAuthBypassed() ? createSupabaseAdminClient() : createSupabaseServerClient();
+}
+
+function getLatestEstimateRun<T extends { created_at?: string | null }>(runs: T[] | null | undefined) {
+  return [...(runs ?? [])].sort((left, right) => {
+    const leftTime = left.created_at ? new Date(left.created_at).getTime() : 0;
+    const rightTime = right.created_at ? new Date(right.created_at).getTime() : 0;
+    return rightTime - leftTime;
+  })[0];
+}
 
 function mapDemoCase(caseId?: string): CaseRecord | null {
   const fallback = caseId ? demoCases.find((item) => item.id === caseId) : demoCases[0];
@@ -82,8 +97,8 @@ function mapDemoCase(caseId?: string): CaseRecord | null {
 
 async function buildSignedPreview(document: { file_path: string; mime_type: string }) {
   if (!document.file_path || !canPreviewInline(document.mime_type)) return null;
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.storage
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin.storage
     .from("tax-documents")
     .createSignedUrl(document.file_path, 60 * 10);
   return data?.signedUrl ?? null;
@@ -142,8 +157,8 @@ function mapResearchQuery(row: any): ResearchQueryRecord {
 }
 
 export async function getClientPrimaryCase(userId: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: cases, error } = await supabase
+  const admin = createSupabaseAdminClient();
+  const { data: cases, error } = await admin
     .from("cases")
     .select(`
       id,
@@ -162,6 +177,7 @@ export async function getClientPrimaryCase(userId: string) {
         assumptions,
         missing_data_warnings,
         human_review_required,
+        created_at,
         estimate_line_items(label, amount, category, note)
       ),
       documents(id, file_name, form_type, status, mime_type, file_path, checksum),
@@ -177,7 +193,7 @@ export async function getClientPrimaryCase(userId: string) {
   }
 
   const row = cases[0] as any;
-  const estimate = row.estimate_runs?.[0];
+  const estimate = getLatestEstimateRun(row.estimate_runs);
   const missingWarnings = (estimate?.missing_data_warnings ?? []) as string[];
   const missingDocuments = missingWarnings.filter((item) =>
     /missing|required|upload|1098|w-2|1099/i.test(item)
@@ -253,7 +269,7 @@ export async function getClientPrimaryCase(userId: string) {
 }
 
 export async function getInternalCases() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await getReadClient();
   const { data, error } = await supabase
     .from("cases")
     .select(`
@@ -269,7 +285,8 @@ export async function getInternalCases() {
         id,
         estimated_federal_refund_or_due,
         estimated_state_refund_or_due,
-        confidence_band
+        confidence_band,
+        created_at
       )
     `)
     .order("created_at", { ascending: false });
@@ -279,7 +296,7 @@ export async function getInternalCases() {
   }
 
   return data.map((row: any) => {
-    const estimate = row.estimate_runs?.[0];
+    const estimate = getLatestEstimateRun(row.estimate_runs);
     const profile = row.tax_profiles?.[0];
     return {
       id: row.id,
@@ -337,7 +354,7 @@ export async function getInternalDashboardData() {
 }
 
 export async function getInternalCase(caseId: string) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await getReadClient();
   const { data, error } = await supabase
     .from("cases")
     .select(`
@@ -361,6 +378,7 @@ export async function getInternalCase(caseId: string) {
         confidence_reasons,
         client_insights,
         internal_insights,
+        created_at,
         estimate_line_items(id, label, amount, category, note)
       ),
       documents(
@@ -419,7 +437,7 @@ export async function getInternalCase(caseId: string) {
 
   const row = data as any;
   const profile = row.tax_profiles?.[0];
-  const estimate = row.estimate_runs?.[0];
+  const estimate = getLatestEstimateRun(row.estimate_runs);
 
   const documents: DocumentRecord[] = await Promise.all(
     ((row.documents as any[]) ?? []).map(async (doc) => ({
@@ -553,7 +571,7 @@ export async function getInternalCase(caseId: string) {
 }
 
 export async function getResearchDashboard() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await getReadClient();
   const [{ data: alerts }, { data: rules }, { data: changes }, { data: sources }] = await Promise.all([
     supabase
       .from("research_alerts")
@@ -655,8 +673,8 @@ export async function getResearchDashboard() {
 }
 
 export async function getClientIntakeQuestionnaire(caseId: string): Promise<IntakeQuestionnaireRecord | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
     .from("intake_questionnaires")
     .select(
       "filing_status, dependents_count, qualifying_child_count, education_expenses, self_employment, rental_income, state_of_residence, local_tax_jurisdiction, withholding_notes, has_1098_t, consent_accepted"
@@ -665,6 +683,8 @@ export async function getClientIntakeQuestionnaire(caseId: string): Promise<Inta
     .maybeSingle();
 
   if (error || !data) return null;
+
+  const parsedNotes = parseWorkflowNotes(data.withholding_notes);
 
   return {
     filingStatus: data.filing_status,
@@ -675,14 +695,15 @@ export async function getClientIntakeQuestionnaire(caseId: string): Promise<Inta
     rentalIncome: data.rental_income,
     stateOfResidence: data.state_of_residence,
     localTaxJurisdiction: data.local_tax_jurisdiction,
-    withholdingNotes: data.withholding_notes,
+    withholdingNotes: parsedNotes.freeText,
     has1098T: data.has_1098_t,
-    consentAccepted: data.consent_accepted
+    consentAccepted: data.consent_accepted,
+    workflowProfile: parsedNotes.workflowProfile,
   };
 }
 
 export async function getAdminDashboard() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await getReadClient();
   const serviceHealthPromise = fetch(`${process.env.FASTAPI_BASE_URL}/health`, { cache: "no-store" })
     .then((response) => (response.ok ? response.json() : null))
     .catch(() => null);
@@ -815,7 +836,7 @@ export async function getResearchHistory(filters?: {
   conflict?: string;
   authority?: string;
 }) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await getReadClient();
   let query = supabase
     .from("research_queries")
     .select(
@@ -860,7 +881,7 @@ export async function getResearchHistory(filters?: {
 }
 
 export async function getResearchQueryDetail(queryId: string) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await getReadClient();
   const { data, error } = await supabase
     .from("research_queries")
     .select(

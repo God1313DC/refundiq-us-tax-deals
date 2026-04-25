@@ -96,11 +96,15 @@ Complex scenarios should be routed to manual review.
 
 1. Client signs in and consents before uploading documents.
 2. Files are stored in a private Supabase bucket and queued for processing.
-3. The Python service classifies each document, runs OCR when needed, extracts fields, and normalizes them into a canonical tax profile.
+3. The Python service classifies each document, runs PDF text extraction or image OCR when needed, extracts fields, and normalizes them into a canonical tax profile.
 4. The estimation engine produces a traceable federal/state estimate with assumptions, warnings, and confidence.
 5. A research-ingestion subsystem tracks authoritative IRS source changes, versions source content, and generates internal rule and alert updates.
 6. Internal staff review extracted fields, flags, notes, source alerts, and rule changes before marking the case ready for tax software entry.
 7. Client sees only a simplified estimate, missing documents, confidence band, disclaimer, and next-step CTA.
+
+For the current local-testing setup, auth can be bypassed with `AUTH_BYPASS=true` so the client, internal, and admin surfaces can be exercised before publishing. Turn that flag off before re-enabling production auth flows.
+
+Local image uploads work best with `OCR_PROVIDER=tesseract`, which requires rebuilding the API/worker images so Docker installs the OCR package set. Blurry photos, rotated screenshots, or tightly cropped W-2 images may still fall back to review-needed warnings instead of silently changing the estimate.
 
 ## Core Pages
 
@@ -171,7 +175,7 @@ Complex scenarios should be routed to manual review.
 ### Client-facing
 
 - Trust-building landing page with product boundaries and CTA
-- Secure login and account creation
+- Secure login and account creation for published environments
 - Estimate dashboard with confidence, missing items, next steps, and disclaimer
 - Guided intake questionnaire
 - Upload center with accepted document types and consent framing
@@ -209,6 +213,14 @@ uvicorn app.main:app --reload --port 8000
 ```bash
 docker compose up --build
 ```
+
+### Local no-login mode
+
+Set `AUTH_BYPASS=true` in [`.env.example`](/Users/dev/Documents/New project/.env.example) or your local `.env` to bypass login during local testing. In this mode:
+
+- `/login`, `/signup`, `/forgot-password`, and `/reset-password` redirect to `/portal`
+- the app auto-provisions demo `client`, `preparer`, and `admin` users in Supabase
+- client, internal, and admin pages stay available for workflow testing
 
 ### Local stack scripts
 

@@ -9,6 +9,9 @@ def build_client_insights(profile: NormalizedTaxProfile, estimate: EstimateResul
     if profile.tuition_paid > 0:
         insights.append("Your estimate may improve if we confirm all education-related documents and eligibility.")
 
+    if any(item.severity == "critical" for item in profile.warning_details):
+        insights.append("Your current estimate includes situations that need preparer review before you rely on it.")
+
     if estimate.estimated_federal_refund_or_due < 0:
         insights.append("You may owe tax because withholding appears low compared with current income.")
     else:
@@ -31,6 +34,9 @@ def build_internal_insights(profile: NormalizedTaxProfile, estimate: EstimateRes
 
     if profile.tuition_paid > 0:
         insights.append("Possible education credit scenario; verify 1098-T details and student eligibility.")
+
+    if any(item.code == "rental-income-unsupported" for item in profile.warning_details):
+        insights.append("Rental income was flagged in intake and remains outside current MVP estimation scope.")
 
     if profile.state_of_residence and profile.state_withholding == 0:
         insights.append("State or local withholding appears incomplete relative to intake answers.")

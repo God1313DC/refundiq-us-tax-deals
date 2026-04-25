@@ -1,8 +1,9 @@
-import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
 export async function createSupabaseServerClient() {
-  const cookieStore = await cookies();
+  const headerStore = await headers();
+  const cookieHeader = headerStore.get("cookie") ?? "";
 
   return createServerClient(
     process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
@@ -10,16 +11,19 @@ export async function createSupabaseServerClient() {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          return cookieHeader
+            .split(/;\s*/)
+            .filter(Boolean)
+            .map((part) => {
+              const index = part.indexOf("=");
+              return {
+                name: part.slice(0, index),
+                value: decodeURIComponent(part.slice(index + 1))
+              };
+            });
         },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Cookie writes are best-effort in server components.
-          }
+        setAll() {
+          // Cookie writes are handled in route handlers / middleware.
         }
       }
     }

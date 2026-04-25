@@ -1,11 +1,11 @@
 import Link from "next/link";
 
-import { signOutAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
-import { getCurrentUserProfile } from "@/lib/auth";
+import { getCurrentUserProfile, isAuthBypassed } from "@/lib/auth";
 
 export async function SiteHeader() {
   const profile = await getCurrentUserProfile();
+  const authBypassed = isAuthBypassed();
   const destination =
     profile?.role === "admin" ? "/admin" : profile?.role === "preparer" ? "/internal" : "/portal";
 
@@ -21,16 +21,19 @@ export async function SiteHeader() {
           <Link href="/admin">Admin</Link>
         </nav>
         <div className="flex items-center gap-3">
-          {profile ? (
+          {authBypassed ? (
+            <>
+              <Link href={destination}>
+                <Button>Open app</Button>
+              </Link>
+            </>
+          ) : profile ? (
             <>
               <Link href={destination}>
                 <Button variant="ghost" className="text-white hover:bg-white/10">
                   {profile.fullName ?? "Dashboard"}
                 </Button>
               </Link>
-              <form action={signOutAction}>
-                <Button>Sign out</Button>
-              </form>
             </>
           ) : (
             <>

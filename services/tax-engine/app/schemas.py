@@ -13,6 +13,7 @@ RoleType = Literal["client", "preparer", "admin"]
 class UploadedDocument(BaseModel):
     document_id: str
     file_name: str
+    declared_form_type: str | None = None
     mime_type: str
     uploaded_by: RoleType
     checksum: str | None = None
@@ -32,6 +33,34 @@ class IntakeAnswers(BaseModel):
     withholding_notes: str | None = None
     has_1098_t: bool = False
     consent_accepted: bool = False
+    residency_status: str | None = None
+    taxpayer_category: str | None = None
+    student_status: bool = False
+    school_name: str | None = None
+    first_year_in_us: bool = False
+    lived_in_us_full_year: bool = True
+    spouse_has_different_residency: bool = False
+    changed_immigration_status_this_year: bool = False
+    has_spouse_or_dependent_without_ssn: bool = False
+    can_be_claimed_dependent: bool = False
+    employment_situation: str | None = None
+    expects_w2: bool = False
+    expects_1099_nec: bool = False
+    expects_1099_misc: bool = False
+    expects_1099_int: bool = False
+    expects_1099_div: bool = False
+    prior_year_filed_in_us: bool = False
+    needs_education_review: bool = False
+    has_scholarships_or_grants: bool = False
+    has_on_campus_job: bool = False
+    received_opt_cpt_income: bool = False
+    received_unemployment_income: bool = False
+    sold_stocks_or_crypto: bool = False
+    had_marketplace_insurance: bool = False
+    had_multiple_states: bool = False
+    has_foreign_income_or_accounts: bool = False
+    workflow_document_checklist: list[str] = Field(default_factory=list)
+    additional_context: str | None = None
 
 
 class CasePayload(BaseModel):
@@ -113,6 +142,7 @@ class NormalizedTaxProfile(BaseModel):
     tuition_paid: float = 0
     scholarships: float = 0
     mortgage_interest: float = 0
+    has_1098_t_support: bool = False
     dependents_count: int = 0
     qualifying_child_count: int = 0
     assumptions: list[str] = Field(default_factory=list)

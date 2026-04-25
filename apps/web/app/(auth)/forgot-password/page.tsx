@@ -1,15 +1,21 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { requestPasswordResetAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { isAuthBypassed } from "@/lib/auth";
 
 export default async function ForgotPasswordPage({
   searchParams
 }: {
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
+  if (isAuthBypassed()) {
+    redirect("/portal");
+  }
+
   const params = await searchParams;
 
   return (

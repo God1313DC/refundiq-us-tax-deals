@@ -10,7 +10,7 @@
 - `SUPABASE_SERVICE_ROLE_KEY`: privileged server/service key
 - `SUPABASE_STORAGE_BUCKET`: private document bucket
 - `REDIS_URL`: queue backend URL
-- `OCR_PROVIDER`: `stub` or `mock_structured` in this repo
+- `OCR_PROVIDER`: `tesseract`, `stub`, or `mock_structured`; `tesseract` is the strongest local option for image uploads after rebuilding Docker images
 - `SCHEDULER_ENABLED`: enables recurring source-ingestion scheduler loop
 - `SCHEDULER_SOURCE_INTERVAL_MINUTES`: recurring source-refresh interval
 - `ADMIN_SYNC_LIMIT`: admin/manual source-refresh batch size

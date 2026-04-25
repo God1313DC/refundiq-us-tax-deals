@@ -128,6 +128,36 @@ export type IntakeQuestionnaireRecord = {
   withholdingNotes: string | null;
   has1098T: boolean;
   consentAccepted: boolean;
+  workflowProfile?: {
+    residencyStatus: string;
+    taxpayerCategory: string;
+    studentStatus: boolean;
+    schoolName: string;
+    firstYearInUs: boolean;
+    livedInUsFullYear: boolean;
+    spouseHasDifferentResidency: boolean;
+    changedImmigrationStatusThisYear: boolean;
+    hasSpouseOrDependentWithoutSsn: boolean;
+    canBeClaimedDependent: boolean;
+    employmentSituation: string;
+    expectsW2: boolean;
+    expects1099Nec: boolean;
+    expects1099Misc: boolean;
+    expects1099Int: boolean;
+    expects1099Div: boolean;
+    priorYearFiledInUs: boolean;
+    needsEducationReview: boolean;
+    hasScholarshipsOrGrants: boolean;
+    hasOnCampusJob: boolean;
+    receivedOptCptIncome: boolean;
+    receivedUnemploymentIncome: boolean;
+    soldStocksOrCrypto: boolean;
+    hadMarketplaceInsurance: boolean;
+    hadMultipleStates: boolean;
+    hasForeignIncomeOrAccounts: boolean;
+    documentChecklist: string[];
+    additionalContext: string;
+  };
 };
 
 export type SourceCitationRecord = {

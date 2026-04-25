@@ -7,6 +7,7 @@ from app.schemas import CitationRecord, ConfidenceReason, EstimateLineItem, Esti
 from app.services.insights import build_client_insights, build_internal_insights
 from app.services.rules.calculators import (
     analyze_withholding,
+    compute_deductible_half_self_employment_tax,
     compute_education_credit,
     compute_progressive_tax,
     compute_self_employment_tax,
@@ -28,14 +29,21 @@ class TaxEstimator:
         )
 
         standard_deduction = STANDARD_DEDUCTIONS_2025[profile.filing_status]
-        taxable_income = max(gross_income - standard_deduction, 0)
-        federal_income_tax = compute_progressive_tax(taxable_income, profile.filing_status)
-
         net_nonemployee_income = max(
             profile.nonemployee_compensation - profile.self_employment_expenses, 0
         )
         self_employment_tax = compute_self_employment_tax(net_nonemployee_income)
-        education_credit = compute_education_credit(profile.tuition_paid, profile.scholarships)
+        deductible_half_se_tax = compute_deductible_half_self_employment_tax(self_employment_tax)
+        adjusted_gross_income = max(gross_income - deductible_half_se_tax, 0)
+        taxable_income = max(adjusted_gross_income - standard_deduction, 0)
+        federal_income_tax = compute_progressive_tax(taxable_income, profile.filing_status)
+        education_credit = compute_education_credit(
+            profile.tuition_paid,
+            profile.scholarships,
+            profile.filing_status,
+            adjusted_gross_income,
+            profile.has_1098_t_support,
+        )
 
         total_federal_tax = federal_income_tax + self_employment_tax - education_credit
         withholding_warnings, withholding_assumptions = analyze_withholding(
@@ -70,10 +78,22 @@ class TaxEstimator:
                 note="2025 standard deduction by filing status.",
             ),
             EstimateLineItem(
+                label="Deductible half of self-employment tax",
+                amount=-deductible_half_se_tax,
+                category="deduction",
+                note="Above-the-line deduction for one-half of self-employment tax when applicable.",
+            ),
+            EstimateLineItem(
+                label="Adjusted gross income used for estimate",
+                amount=adjusted_gross_income,
+                category="adjustment",
+                note="Gross income less supported above-the-line adjustments used in the MVP estimate path.",
+            ),
+            EstimateLineItem(
                 label="Taxable income",
                 amount=taxable_income,
                 category="adjustment",
-                note="Gross income less standard deduction.",
+                note="Adjusted gross income less standard deduction.",
             ),
             EstimateLineItem(
                 label="Estimated federal income tax",
@@ -100,10 +120,16 @@ class TaxEstimator:
                 note="Based on currently normalized source documents only.",
             ),
             EstimateLineItem(
-                label="Estimated state tax position",
-                amount=estimated_state,
+                label="Estimated state tax",
+                amount=-state_tax,
                 category="tax",
                 note="Modular state estimate path with conservative placeholder logic.",
+            ),
+            EstimateLineItem(
+                label="State withholding",
+                amount=profile.state_withholding,
+                category="withholding",
+                note="Based on currently normalized state withholding support only.",
             ),
         ]
 
@@ -126,7 +152,21 @@ class TaxEstimator:
                 )
             )
 
-        if len(profile.missing_items) >= 2 or len(total_warning_details) >= 2:
+        if total_warning_details:
+            confidence = "medium" if confidence == "high" else confidence
+            confidence_reasons.append(
+                ConfidenceReason(
+                    label="Review flags detected",
+                    impact="negative",
+                    detail="Warnings or document review flags are present and should be resolved before relying on the estimate.",
+                )
+            )
+
+        if (
+            len(profile.missing_items) >= 2
+            or len(total_warning_details) >= 2
+            or any(item.severity == "critical" for item in total_warning_details)
+        ):
             confidence = "low"
             confidence_reasons.append(
                 ConfidenceReason(
@@ -139,6 +179,7 @@ class TaxEstimator:
         assumptions = [
             *profile.assumptions,
             f"Engine version: {settings.estimation_engine_version}",
+            "Federal estimate follows the current limited-scope 2025 bracket configuration in the project.",
             "State estimate is limited-scope and should be reviewed before use.",
             "This estimate is not a filed return and remains subject to human review.",
         ]

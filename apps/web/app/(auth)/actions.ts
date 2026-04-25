@@ -2,52 +2,12 @@
 
 import { redirect } from "next/navigation";
 
+import { bootstrapUserProfile } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function destinationForRole(role?: string | null) {
   return role === "client" ? "/portal" : role === "admin" ? "/admin" : "/internal";
-}
-
-async function ensureClientCase(userId: string, email: string) {
-  const admin = createSupabaseAdminClient();
-  const { data: org } = await admin
-    .from("organizations")
-    .select("id")
-    .eq("slug", "us-tax-deals")
-    .single();
-
-  if (!org?.id) return;
-
-  const { data: existingCase } = await admin
-    .from("cases")
-    .select("id")
-    .eq("client_user_id", userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (existingCase?.id) return;
-
-  const caseNumber = `RIQ-${Math.floor(Math.random() * 9000) + 1000}`;
-  await admin.from("cases").insert({
-    organization_id: org.id,
-    client_user_id: userId,
-    case_number: caseNumber,
-    tax_year: Number(process.env.DEFAULT_TAX_YEAR ?? "2025"),
-    status: "intake_in_progress",
-    confidence_band: "low",
-    filing_status: null,
-    state_of_residence: null
-  });
-
-  await admin.from("audit_logs").insert({
-    organization_id: org.id,
-    case_id: null,
-    actor_id: userId,
-    action: "client_signup_initialized_case",
-    entity_type: "case_bootstrap",
-    payload: { email }
-  });
 }
 
 export async function signInAction(formData: FormData) {
@@ -67,7 +27,16 @@ export async function signInAction(formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (user) {
-    const { data: profile } = await admin.from("users").select("role").eq("id", user.id).maybeSingle();
+    let { data: profile } = await admin.from("users").select("role").eq("id", user.id).maybeSingle();
+    if (!profile) {
+      await bootstrapUserProfile({
+        id: user.id,
+        email: user.email,
+        user_metadata: { full_name: user.user_metadata?.full_name ?? null }
+      });
+      const retry = await admin.from("users").select("role").eq("id", user.id).maybeSingle();
+      profile = retry.data;
+    }
     redirect(destinationForRole(profile?.role));
   }
 
@@ -100,22 +69,11 @@ export async function signUpAction(formData: FormData) {
   }
 
   if (data.user) {
-    const admin = createSupabaseAdminClient();
-    const { data: org } = await admin
-      .from("organizations")
-      .select("id")
-      .eq("slug", "us-tax-deals")
-      .single();
-
-    await admin.from("users").upsert({
+    await bootstrapUserProfile({
       id: data.user.id,
-      organization_id: org?.id ?? null,
-      full_name: fullName,
       email,
-      role: "client"
+      user_metadata: { full_name: fullName }
     });
-
-    await ensureClientCase(data.user.id, email);
   }
 
   redirect("/portal");

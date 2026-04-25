@@ -6,11 +6,20 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - .env.example
+      - .env
+    environment:
+      FASTAPI_BASE_URL: http://api:8000
+      API_BASE_URL: http://api:8000
     volumes:
       - ./apps/web:/workspace/apps/web
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/login').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
       interval: 20s
       timeout: 5s
       retries: 6
@@ -24,7 +33,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - .env.example
+      - .env
     volumes:
       - ./services/tax-engine:/app
     healthcheck:
@@ -40,7 +49,7 @@ services:
       context: ./services/tax-engine
     command: python -m app.workers.tasks
     env_file:
-      - .env.example
+      - .env
     volumes:
       - ./services/tax-engine:/app
     depends_on:
@@ -51,7 +60,7 @@ services:
       context: ./services/tax-engine
     command: python -m app.workers.scheduler
     env_file:
-      - .env.example
+      - .env
     volumes:
       - ./services/tax-engine:/app
     depends_on:

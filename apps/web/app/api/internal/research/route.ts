@@ -1,23 +1,45 @@
 import { NextResponse } from "next/server";
 
+import { getCurrentUserProfile, isAuthBypassed } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const profile = isAuthBypassed()
+    ? await getCurrentUserProfile("preparer")
+    : await (async () => {
+        const supabase = await createSupabaseServerClient();
+        const {
+          data: { user }
+        } = await supabase.auth.getUser();
+        if (!user) return null;
 
-  if (!user) {
+        const admin = createSupabaseAdminClient();
+        const { data: dbProfile } = await admin
+          .from("users")
+          .select("id, full_name, email, role, organization_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (!dbProfile) return null;
+        return {
+          id: dbProfile.id,
+          fullName: dbProfile.full_name,
+          email: dbProfile.email,
+          role: dbProfile.role,
+          organizationId: dbProfile.organization_id
+        };
+      })();
+
+  if (!profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const admin = createSupabaseAdminClient();
-  const { data: profile } = await admin.from("users").select("role").eq("id", user.id).maybeSingle();
-  if (!profile || (profile.role !== "preparer" && profile.role !== "admin")) {
+  if (profile.role !== "preparer" && profile.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const admin = createSupabaseAdminClient();
 
   const body = await request.json();
   let response: Response;
@@ -43,7 +65,7 @@ export async function POST(request: Request) {
 
   const data = await response.json();
   await admin.from("research_queries").insert({
-    asked_by: user.id,
+    asked_by: profile.id,
     case_id: body.case_id ?? body.caseId ?? null,
     question: body.question,
     answer: data.answer,
